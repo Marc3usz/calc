@@ -1,6 +1,8 @@
 {
   "dependencies": [
     "fmt",
-    "sdl2"
+    "sdl2",
+    "sdl2-ttf",
+    "cxxopts"
   ]
 }

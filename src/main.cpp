@@ -1,111 +1,22 @@
-#include "functionFactory.hpp"
-#include <iostream>
 #define SDL_MAIN_HANDLED
-#include <SDL2/SDL.h>
-#include <cmath>
+
+#include "graphHandler.hpp"
+#include "functionFactory.hpp"
+
 #include <vector>
+#include <iostream>
+#include <sstream>
+#include <string>
 
-
-int mapX(double x, double minX, double maxX, int screenWidth) {
-    return static_cast<int>((x - minX) / (maxX - minX) * screenWidth);
-}
-
-int mapY(double y, double minY, double maxY, int screenHeight) {
-    return static_cast<int>(screenHeight - ((y - minY) / (maxY - minY) * screenHeight));
-}
-
-void drawAxes(SDL_Renderer* renderer, double minX, double maxX, double minY, double maxY,
-    int screenWidth, int screenHeight) {
-    SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255);
-
-    if (minY <= 0 && maxY >= 0) {
-        int y0 = mapY(0, minY, maxY, screenHeight);
-        SDL_RenderDrawLine(renderer, 0, y0, screenWidth, y0);
-    }
-
-    if (minX <= 0 && maxX >= 0) {
-        int x0 = mapX(0, minX, maxX, screenWidth);
-        SDL_RenderDrawLine(renderer, x0, 0, x0, screenHeight);
-    }
-}
-
-void drawGrid(SDL_Renderer* renderer, double minX, double maxX, double minY, double maxY,
-    int screenWidth, int screenHeight) {
-    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
-
-    double rangeX = maxX - minX;
-    double rangeY = maxY - minY;
-
-    double gridSpacingX = 1.0;
-    double gridSpacingY = 1.0;
-
-    if (rangeX > 20) gridSpacingX = std::ceil(rangeX / 20);
-    if (rangeY > 20) gridSpacingY = std::ceil(rangeY / 20);
-
-    double startX = std::ceil(minX / gridSpacingX) * gridSpacingX;
-    for (double x = startX; x <= maxX; x += gridSpacingX) {
-        int screenX = mapX(x, minX, maxX, screenWidth);
-        SDL_RenderDrawLine(renderer, screenX, 0, screenX, screenHeight);
-    }
-
-    double startY = std::ceil(minY / gridSpacingY) * gridSpacingY;
-    for (double y = startY; y <= maxY; y += gridSpacingY) {
-        int screenY = mapY(y, minY, maxY, screenHeight);
-        SDL_RenderDrawLine(renderer, 0, screenY, screenWidth, screenY);
-    }
-}
-
-void plotFunction(SDL_Renderer* renderer, Function& func,
-    double minX, double maxX, double minY, double maxY,
-    int screenWidth, int screenHeight, SDL_Color color) {
-
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-
-    const int numPoints = screenWidth * 2;
-    double step = (maxX - minX) / numPoints;
-
-    std::vector<SDL_Point> points;
-    bool lastPointValid = false;
-    SDL_Point lastPoint = { 0, 0 };
-
-    for (int i = 0; i <= numPoints; i++) {
-        double x = minX + i * step;
-        double y;
-
-        try {
-            y = func(x);
-
-            bool pointValid = y >= minY && y <= maxY &&
-                !std::isinf(y) && !std::isnan(y);
-
-            if (pointValid) {
-                SDL_Point point = {
-                    mapX(x, minX, maxX, screenWidth),
-                    mapY(y, minY, maxY, screenHeight)
-                };
-
-                if (lastPointValid) {
-                    SDL_RenderDrawLine(renderer, lastPoint.x, lastPoint.y, point.x, point.y);
-                }
-
-                lastPoint = point;
-                lastPointValid = true;
-            }
-            else {
-                lastPointValid = false;
-            }
-        }
-        catch (...) {
-            lastPointValid = false;
-        }
-    }
-}
+#define MESSAGE "Calc\nm: toggle help\n\n<arrows>: navigate\n+/-: zoom\nr: reset view\n\n1-6: toggle function definition\n<shift>1-6: edit function definiton\n<esc>: exit edit mode\n\n<shift>s: save\n<ctrl><shift>s: export roots\n\n<shift><esc>: exit"
 
 int WinMain() {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL initialization failed: " << SDL_GetError() << std::endl;
         return 1;
     }
+
+    TTF_Init();
 
     const int SCREEN_WIDTH = 800;
     const int SCREEN_HEIGHT = 600;
@@ -131,6 +42,12 @@ int WinMain() {
         return 1;
     }
 
+        TTF_Font* font = TTF_OpenFont("C:\\Windows\\Fonts\\arial.ttf", 20);
+    if (!font) {
+        std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+    }
+
+        bool showMenu = true;
     functionMapping fs = {
         {"sin", [](ld x) {return std::sin(x); }},
         {"cos", [](ld x) {return std::cos(x); }}
@@ -142,7 +59,7 @@ int WinMain() {
         double minY = -5.0;
         double maxY = 5.0;
 
-        std::vector<std::string> expressions{ "asin(x) * cos(x^2)" };
+        std::vector<std::string> expressions{ "a2^x" };
         FunctionFactory fns(fs, expressions);
         std::map<std::string, Function> functions = fns.getFunctions();
 
@@ -161,37 +78,54 @@ int WinMain() {
                     quit = true;
                 }
                 else if (e.type == SDL_KEYDOWN) {
+
+                    double rangeX = maxX - minX;
+                    double rangeY = maxY - minY;
+                    double centerX = (minX + maxX) / 2.0;
+                    double centerY = (minY + maxY) / 2.0;
+
                     switch (e.key.keysym.sym) {
+                    case SDLK_m:
+                                                showMenu = !showMenu;
+                        break;
                     case SDLK_UP:
-                        minY += 0.5;
-                        maxY += 0.5;
+                        minY += rangeY * 0.05;
+                        maxY += rangeY * 0.05;
                         break;
                     case SDLK_DOWN:
-                        minY -= 0.5;
-                        maxY -= 0.5;
+                        minY -= rangeY * 0.05;
+                        maxY -= rangeY * 0.05;
                         break;
                     case SDLK_LEFT:
-                        minX -= 0.5;
-                        maxX -= 0.5;
+                        minX -= rangeX * 0.05;
+                        maxX -= rangeX * 0.05;
                         break;
                     case SDLK_RIGHT:
-                        minX += 0.5;
-                        maxX += 0.5;
+                        minX += rangeX * 0.05;
+                        maxX += rangeX * 0.05;
                         break;
                     case SDLK_KP_PLUS:
                     case SDLK_EQUALS:
-                        minX = minX * 0.9;
-                        maxX = maxX * 0.9;
-                        minY = minY * 0.9;
-                        maxY = maxY * 0.9;
-                        break;
+                    {
+                        double newRangeX = rangeX * 0.9;
+                        double newRangeY = rangeY * 0.9;
+                        minX = centerX - newRangeX / 2.0;
+                        maxX = centerX + newRangeX / 2.0;
+                        minY = centerY - newRangeY / 2.0;
+                        maxY = centerY + newRangeY / 2.0;
+                    }
+                    break;
                     case SDLK_KP_MINUS:
                     case SDLK_MINUS:
-                        minX = minX * 1.1;
-                        maxX = maxX * 1.1;
-                        minY = minY * 1.1;
-                        maxY = maxY * 1.1;
-                        break;
+                    {
+                        double newRangeX = rangeX * 1.1;
+                        double newRangeY = rangeY * 1.1;
+                        minX = centerX - newRangeX / 2.0;
+                        maxX = centerX + newRangeX / 2.0;
+                        minY = centerY - newRangeY / 2.0;
+                        maxY = centerY + newRangeY / 2.0;
+                    }
+                    break;
                     case SDLK_r:
                         minX = -10.0;
                         maxX = 10.0;
@@ -202,20 +136,91 @@ int WinMain() {
                         quit = true;
                         break;
                     }
+
+                    if (maxX <= minX) {
+                        double midX = (minX + maxX) / 2.0;
+                        minX = midX - 0.1;
+                        maxX = midX + 0.1;
+                    }
+
+                    if (maxY <= minY) {
+                        double midY = (minY + maxY) / 2.0;
+                        minY = midY - 0.1;
+                        maxY = midY + 0.1;
+                    }
                 }
             }
 
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+                        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
 
-            drawGrid(renderer, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT);
-            drawAxes(renderer, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT);
+                        graph::drawGrid(renderer, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT);
+            graph::drawAxes(renderer, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT);
 
             SDL_Color functionColor = { 255, 0, 0, 255 };
-            plotFunction(renderer, fn, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT, functionColor);
+            graph::plotFunction(renderer, fn, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT, functionColor);
+
+                        if (showMenu && font) {
+                                std::vector<std::string> menuLines;
+                std::istringstream stream(MESSAGE);
+                std::string line;
+
+                while (std::getline(stream, line, '\n')) {
+                    menuLines.push_back(line);
+                }
+
+                                int lineHeight = TTF_FontHeight(font);
+                int menuHeight = lineHeight * menuLines.size() + 30; 
+                                SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180);
+                SDL_Rect menuBackground = { 20, 20, SCREEN_WIDTH - 40, menuHeight };
+                SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+                SDL_RenderFillRect(renderer, &menuBackground);
+                SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+                                SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+                SDL_RenderDrawRect(renderer, &menuBackground);
+
+                                SDL_Color textColor = { 255, 255, 255, 255 };
+                for (size_t i = 0; i < menuLines.size(); i++) {
+                    SDL_Surface* textSurface = TTF_RenderText_Blended(font, menuLines[i].c_str(), textColor);
+                    if (textSurface) {
+                        SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+                        if (textTexture) {
+                            SDL_Rect textRect = {
+                                30,
+                                35 + static_cast<int>(i) * lineHeight,
+                                textSurface->w,
+                                textSurface->h
+                            };
+                            SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+                            SDL_DestroyTexture(textTexture);
+                        }
+                        SDL_FreeSurface(textSurface);
+                    }
+                }
+            }
+
+                        if (font) {
+                SDL_Color textColor = { 255, 255, 255, 255 };
+                std::string expressionText = "f(x) = " + expressions[0];
+                SDL_Surface* exprSurface = TTF_RenderText_Blended(font, expressionText.c_str(), textColor);
+                if (exprSurface) {
+                    SDL_Texture* exprTexture = SDL_CreateTextureFromSurface(renderer, exprSurface);
+                    if (exprTexture) {
+                        SDL_Rect exprRect = {
+                            10,
+                            SCREEN_HEIGHT - exprSurface->h - 10,
+                            exprSurface->w,
+                            exprSurface->h
+                        };
+                        SDL_RenderCopy(renderer, exprTexture, NULL, &exprRect);
+                        SDL_DestroyTexture(exprTexture);
+                    }
+                    SDL_FreeSurface(exprSurface);
+                }
+            }
 
             SDL_RenderPresent(renderer);
-
             SDL_Delay(16);
         }
     }
@@ -223,8 +228,12 @@ int WinMain() {
         std::cerr << "Error: " << e.what() << std::endl;
     }
 
+        if (font) {
+        TTF_CloseFont(font);
+    }
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    TTF_Quit();
     SDL_Quit();
 
     return 0;

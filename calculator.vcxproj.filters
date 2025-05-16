@@ -21,6 +21,9 @@
     <ClCompile Include="src\common.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\graphHandler.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\functionFactory.hpp">
@@ -30,6 +33,9 @@
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="include\common.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\graphHandler.hpp">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
