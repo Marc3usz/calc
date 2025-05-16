@@ -134,6 +134,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\common.cpp" />
     <ClCompile Include="src\derivative.cpp" />
     <ClCompile Include="src\functionFactory.cpp" />
     <ClCompile Include="src\main.cpp" />

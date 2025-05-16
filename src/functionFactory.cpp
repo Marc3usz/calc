@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "derivative.hpp"
+#include <iostream>
 
 static int safeGet(std::map<std::string, int> map, std::string key, int placeholder = 0) {
 	auto res = map.find(key);
@@ -62,11 +63,11 @@ void FunctionFactory::tokenize(std::string& expression) {
 		else if (c == 'x') {
 			tokens.push_back("x");
 		}
-		else if (isalpha(c)) {
+		else if (isalpha(c) or c == '\'') {
 			std::string identifier;
 			identifier += c;
 			size_t j = i + 1;
-			while (j < expressionNoSpaces.length() and isalpha(expressionNoSpaces[j]))
+			while (j < expressionNoSpaces.length() and (isalpha(expressionNoSpaces[j]) or expressionNoSpaces[j] == '\''))
 				identifier += expressionNoSpaces[j++];
 
 			// pochodne
@@ -82,7 +83,7 @@ void FunctionFactory::tokenize(std::string& expression) {
 				throw std::invalid_argument("Invalid identifier found");
 			}
 		}
-		else if (std::string("+-/*^()").find(c))
+		else if (std::string("+-/*^()").find(c) != std::string::npos)
 			tokens.push_back(std::string() + c);
 		else
 			throw std::invalid_argument("Invalid token found");
@@ -123,7 +124,7 @@ void FunctionFactory::parse() {
 			parsed.push(token);
 		}
 		else if (!token.empty() &&
-			std::all_of(token.begin(), token.end(), [](char c) { return std::isalpha(c); }) &&
+			std::all_of(token.begin(), token.end(), [](char c) { return std::isalpha(c) or c == '\''; }) &&
 			token != "x" &&
 			i + 1 < tokens.size() &&
 			tokens[i + 1] == "(") {
@@ -185,6 +186,7 @@ Function FunctionFactory::buildFunction(char identifier) {
 
 	while (!parsedCopy.empty()) {
 		std::string token = parsedCopy.front();
+
 		parsedCopy.pop();
 
 		if (token == "x") {
@@ -249,7 +251,7 @@ Function FunctionFactory::buildFunction(char identifier) {
 
 			std::string _identifier = token.substr(0, token.size() - 1);
 
-			if (_identifier.size() == 1 && _identifier[0] >= identifier)
+			if (_identifier.size() == 1 and _identifier[0] >= identifier)
 				throw std::invalid_argument("User-defined function calls must be to preceding or builtin functions");
 
 			Function fn;
@@ -266,7 +268,7 @@ Function FunctionFactory::buildFunction(char identifier) {
 
 			Function fn_prime = derivative(fn);
 
-			fnStack.push([fn_prime, arg](ld x) { return fn_prime(arg(x)); });
+			fnStack.push([fn_prime, arg](ld x) { ld z = arg(x); return fn_prime(z); });
 		}
 		else if (std::all_of(token.begin(), token.end(), ::isalpha)) {
 			if (fnStack.empty())
@@ -274,7 +276,7 @@ Function FunctionFactory::buildFunction(char identifier) {
 
 			Function arg = fnStack.top(); fnStack.pop();
 
-			if (token.size() == 1 && token[0] >= identifier)
+			if (token.size() == 1 and token[0] >= identifier)
 				throw std::invalid_argument("User-defined function calls must be to preceding or builtin functions");
 
 			Function fn;
