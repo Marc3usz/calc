@@ -7,7 +7,6 @@
 #include <cmath>
 
 #include "derivative.hpp"
-#include <iostream>
 
 static int safeGet(std::map<std::string, int> map, std::string key, int placeholder = 0) {
 	auto res = map.find(key);
@@ -300,13 +299,26 @@ Function FunctionFactory::buildFunction(char identifier) {
 
 	return fnStack.top();
 }
-FunctionFactory::FunctionFactory(functionMapping& fns) {
-	functions = fns;
+void FunctionFactory::loadFunctions(strvecr strfns)
+{
+	for (std::string str : strfns) {
+		char identifier = str[0];
+		std::string body = str.substr(1, str.size());
+		savedStrs[identifier] = body;
+		parseFunction(body, identifier);
+	}
+}
+FunctionFactory::FunctionFactory(functionMapping& fns) : builtInFunctions(fns) {};
+FunctionFactory::FunctionFactory(functionMapping& fns, strvecr strfns) : builtInFunctions(fns)
+{
+	loadFunctions(strfns);
 }
 const functionMapping& FunctionFactory::getFunctions() {
 	return functions;
 };
-void FunctionFactory::parseFunction(std::string& expression, char identifier) {
+void FunctionFactory::parseFunction(std::string& expression, char identifier) 
+{
+	savedStrs[identifier] = expression;
 
 	tokenize(expression);
 	parse();
@@ -316,4 +328,15 @@ void FunctionFactory::parseFunction(std::string& expression, char identifier) {
 
 	parsed = std::queue<std::string>();
 	tokens = std::vector<std::string>();
+}
+std::vector<std::string> FunctionFactory::exportFunctions()
+{
+	std::vector<std::string> res;
+	for (auto pair : savedStrs) {
+		res.push_back(pair.first + pair.second);
+	}
+	return res;
 };
+void FunctionFactory::importFunctions(strvecr fnstrs) {
+	loadFunctions(fnstrs);
+}

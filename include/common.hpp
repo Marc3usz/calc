@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <string>
 
 typedef long double ld;
 typedef std::function<ld(ld)> Function;

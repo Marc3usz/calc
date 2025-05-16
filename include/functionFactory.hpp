@@ -4,11 +4,11 @@
 #include <stack>
 #include <queue>
 #include <map>
-#include <variant>
 
 #include "common.hpp"
 
 typedef std::map<std::string, Function> functionMapping;
+typedef std::vector<std::string>& strvecr;
 
 class FunctionFactory {
 private:
@@ -19,10 +19,15 @@ private:
 	functionMapping builtInFunctions;
 	std::queue<std::string> parsed;
 	std::vector<std::string> tokens;
+	std::map<char, std::string> savedStrs;
+	void loadFunctions(strvecr);
 public:
 	FunctionFactory() = default;
 	FunctionFactory(functionMapping&);
+	FunctionFactory(functionMapping&, strvecr);
 	~FunctionFactory() = default;
 	const functionMapping& getFunctions();
 	void parseFunction(std::string& expression, char identifier);
+	std::vector<std::string> exportFunctions();
+	void importFunctions(strvecr);
 };
