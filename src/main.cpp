@@ -3,10 +3,10 @@
 #include "graphHandler.hpp"
 #include "functionFactory.hpp"
 
-#include <vector>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <fmt/core.h>
 
 #define MESSAGE "Calc\nm: toggle help\n\n<arrows>: navigate\n+/-: zoom\nr: reset view\n\n1-6: toggle function definition\n<shift>1-6: edit function definiton\n<esc>: exit edit mode\n\n<shift>s: save\n<ctrl><shift>s: export roots\n\n<shift><esc>: exit"
 
@@ -58,9 +58,11 @@ int WinMain() {
         double maxX = 10.0;
         double minY = -5.0;
         double maxY = 5.0;
+        bool editing = false;
+        char toDisplay = '\0';
 
-        std::vector<std::string> expressions{ "a2^x" };
-        FunctionFactory fns(fs, expressions);
+        FunctionFactory fns(fs);
+        fns.parseFunction("2^x", 'a');
         std::map<std::string, Function> functions = fns.getFunctions();
 
         auto it = functions.find("a");
@@ -86,7 +88,7 @@ int WinMain() {
 
                     switch (e.key.keysym.sym) {
                     case SDLK_m:
-                                                showMenu = !showMenu;
+                        showMenu = !showMenu;
                         break;
                     case SDLK_UP:
                         minY += rangeY * 0.05;
@@ -133,8 +135,43 @@ int WinMain() {
                         maxY = 5.0;
                         break;
                     case SDLK_ESCAPE:
-                        quit = true;
+                        if (e.key.keysym.mod & KMOD_SHIFT)
+                            quit = true;
+                        else 
+                            editing = false;
                         break;
+                    case SDLK_1:
+                    case SDLK_2:
+                    case SDLK_3:
+                    case SDLK_4:
+                    case SDLK_5:
+                    case SDLK_6:
+                    {
+                        char functionId = 'a' + (e.key.keysym.sym - SDLK_1); 
+                        std::string fnKey(1, functionId);
+
+                        if (e.key.keysym.mod & KMOD_SHIFT) {
+                            
+                            editing = true;
+                            toDisplay = functionId;
+                        }
+                        else {
+                            
+                            if (toDisplay == functionId) {
+                                
+                                toDisplay = '\0';
+                            }
+                            else {
+                                
+                                auto it = functions.find(fnKey);
+                                if (it != functions.end()) {
+                                    toDisplay = functionId;
+                                    fn = it->second;
+                                }
+                            }
+                        }
+                    }
+                    break;
                     }
 
                     if (maxX <= minX) {
@@ -200,25 +237,38 @@ int WinMain() {
                 }
             }
 
-                        if (font) {
-                SDL_Color textColor = { 255, 255, 255, 255 };
-                std::string expressionText = "f(x) = " + expressions[0];
-                SDL_Surface* exprSurface = TTF_RenderText_Blended(font, expressionText.c_str(), textColor);
-                if (exprSurface) {
-                    SDL_Texture* exprTexture = SDL_CreateTextureFromSurface(renderer, exprSurface);
-                    if (exprTexture) {
-                        SDL_Rect exprRect = {
-                            10,
-                            SCREEN_HEIGHT - exprSurface->h - 10,
-                            exprSurface->w,
-                            exprSurface->h
-                        };
-                        SDL_RenderCopy(renderer, exprTexture, NULL, &exprRect);
-                        SDL_DestroyTexture(exprTexture);
-                    }
-                    SDL_FreeSurface(exprSurface);
-                }
-            }
+                        if (font) if (font && toDisplay != '\0') {
+                            SDL_Color textColor = { 255, 255, 255, 255 };
+                            std::vector<std::string> expressions = fns.exportFunctions();
+
+                            
+                            std::string expressionText;
+                            for (const auto& expr : expressions) {
+                                if (!expr.empty() && expr[0] == toDisplay) {
+                                    expressionText = expr;
+                                    break;
+                                }
+                            }
+
+                            if (!expressionText.empty()) {
+                                std::string functionText = fmt::format("{}(x) = {}", expressionText[0], expressionText.substr(1));
+                                SDL_Surface* exprSurface = TTF_RenderText_Blended(font, functionText.c_str(), textColor);
+                                if (exprSurface) {
+                                    SDL_Texture* exprTexture = SDL_CreateTextureFromSurface(renderer, exprSurface);
+                                    if (exprTexture) {
+                                        SDL_Rect exprRect = {
+                                            10,
+                                            SCREEN_HEIGHT - exprSurface->h - 10,
+                                            exprSurface->w,
+                                            exprSurface->h
+                                        };
+                                        SDL_RenderCopy(renderer, exprTexture, NULL, &exprRect);
+                                        SDL_DestroyTexture(exprTexture);
+                                    }
+                                    SDL_FreeSurface(exprSurface);
+                                }
+                            }
+                        }
 
             SDL_RenderPresent(renderer);
             SDL_Delay(16);

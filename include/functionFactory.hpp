@@ -8,7 +8,6 @@
 #include "common.hpp"
 
 typedef std::map<std::string, Function> functionMapping;
-typedef std::vector<std::string>& strvecr;
 
 class FunctionFactory {
 private:
@@ -27,7 +26,7 @@ public:
 	FunctionFactory(functionMapping&, strvecr);
 	~FunctionFactory() = default;
 	const functionMapping& getFunctions();
-	void parseFunction(std::string& expression, char identifier);
+	void parseFunction(std::string expression, char identifier);
 	std::vector<std::string> exportFunctions();
 	void importFunctions(strvecr);
 };

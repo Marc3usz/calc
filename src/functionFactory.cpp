@@ -316,7 +316,7 @@ FunctionFactory::FunctionFactory(functionMapping& fns, strvecr strfns) : builtIn
 const functionMapping& FunctionFactory::getFunctions() {
 	return functions;
 };
-void FunctionFactory::parseFunction(std::string& expression, char identifier) 
+void FunctionFactory::parseFunction(std::string expression, char identifier) 
 {
 	savedStrs[identifier] = expression;
 
@@ -335,6 +335,7 @@ std::vector<std::string> FunctionFactory::exportFunctions()
 	for (auto pair : savedStrs) {
 		res.push_back(pair.first + pair.second);
 	}
+	sortStrVecByFirstChar(res);
 	return res;
 };
 void FunctionFactory::importFunctions(strvecr fnstrs) {
