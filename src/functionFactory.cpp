@@ -14,37 +14,32 @@ static int safeGet(std::map<std::string, int> map, std::string key, int placehol
 }
 
 void FunctionFactory::tokenize(std::string& expression) {
-
 	std::string expressionNoSpaces;
 	for (char c : expression) {
 		if (c != ' ') {
 			expressionNoSpaces += c;
 		}
 	}
-
 	size_t i = 0;
 	while (i < expressionNoSpaces.length()) {
 		char c = expressionNoSpaces[i];
-		if (isdigit(c) or c == '.') {
+		if (isdigit(c) || c == '.') {
+
 			std::string number;
 			bool hasDecimal = false;
 
 			if (c == '.') {
-				if (i + 1 < expressionNoSpaces.length() and isdigit(expressionNoSpaces[i + 1])) {
-					number = "0";
-					hasDecimal = true;
-					i++;
-					c = expressionNoSpaces[i];
-				}
-			}
-
-			else {
+				number += "0.";
+				hasDecimal = true;
 				i++;
-				tokens.push_back(std::string() + c);
-				continue;
+			}
+			else {
+				number += c;
+				i++;
 			}
 
-			while (i < expressionNoSpaces.length() and (isdigit(expressionNoSpaces[i]) or expressionNoSpaces[i] == '.')) {
+			while (i < expressionNoSpaces.length() &&
+				(isdigit(expressionNoSpaces[i]) || expressionNoSpaces[i] == '.')) {
 				if (expressionNoSpaces[i] == '.') {
 					if (hasDecimal)
 						throw std::invalid_argument("Invalid number with 2+ decimal points");
@@ -54,41 +49,38 @@ void FunctionFactory::tokenize(std::string& expression) {
 				i++;
 			}
 
-			if (!number.empty())
-				tokens.push_back(number);
-
-			i--;
+			tokens.push_back(number);
+			i--; 
 		}
 		else if (c == 'x') {
 			tokens.push_back("x");
 		}
-		else if (isalpha(c) or c == '\'') {
+		else if (isalpha(c) || c == '\'') {
 			std::string identifier;
 			identifier += c;
 			size_t j = i + 1;
-			while (j < expressionNoSpaces.length() and (isalpha(expressionNoSpaces[j]) or expressionNoSpaces[j] == '\''))
+			while (j < expressionNoSpaces.length() && (isalpha(expressionNoSpaces[j]) || expressionNoSpaces[j] == '\''))
 				identifier += expressionNoSpaces[j++];
 
-			// pochodne
-			if (j + 1 < expressionNoSpaces.length() and expressionNoSpaces[j] == '\'' and expressionNoSpaces[j + 1] == '(') {
+			if (j < expressionNoSpaces.length() && expressionNoSpaces[j] == '\'' && j + 1 < expressionNoSpaces.length() && expressionNoSpaces[j + 1] == '(') {
 				tokens.push_back(identifier + "'");
 				i = j;
 			}
-			else if (j < expressionNoSpaces.length() and expressionNoSpaces[j] == '(') {
+			else if (j < expressionNoSpaces.length() && expressionNoSpaces[j] == '(') {
 				tokens.push_back(identifier);
 				i = j - 1;
 			}
 			else {
-				throw std::invalid_argument("Invalid identifier found");
+				throw std::invalid_argument("Invalid identifier found: " + identifier);
 			}
 		}
 		else if (std::string("+-/*^()").find(c) != std::string::npos)
 			tokens.push_back(std::string() + c);
 		else
-			throw std::invalid_argument("Invalid token found");
+			throw std::invalid_argument("Invalid token found: " + std::string(1, c));
 		i++;
 	}
-};
+}
 
 
 void FunctionFactory::parse() {
@@ -192,17 +184,14 @@ Function FunctionFactory::buildFunction(char identifier) {
 			fnStack.push([](ld x) { return x; });
 		}
 		else if (!token.empty() && [&token]() {
-			bool hasDecimal = false;
-			for (char c : token) {
-				if (c == '.') {
-					if (hasDecimal) return false;
-					hasDecimal = true;
-				}
-				else if (!std::isdigit(c)) {
-					return false;
-				}
+			try {
+				std::size_t pos = 0;
+				std::stold(token, &pos);
+				return pos == token.length();
 			}
-			return true;
+			catch (const std::exception&) {
+				return false;
+			}
 			}()) {
 			ld val = std::stold(token);
 			fnStack.push([val](ld x) { return val; });
@@ -318,16 +307,22 @@ const functionMapping& FunctionFactory::getFunctions() {
 };
 void FunctionFactory::parseFunction(std::string expression, char identifier) 
 {
-	savedStrs[identifier] = expression;
-
+	try {
 	tokenize(expression);
 	parse();
 
 	Function fn = buildFunction(identifier);
 	functions[std::string() + identifier] = fn;
+	savedStrs[identifier] = expression;
 
 	parsed = std::queue<std::string>();
 	tokens = std::vector<std::string>();
+	}
+	catch (std::exception& e) {
+		parsed = std::queue<std::string>();
+		tokens = std::vector<std::string>();
+		throw e;
+	}
 }
 std::vector<std::string> FunctionFactory::exportFunctions()
 {

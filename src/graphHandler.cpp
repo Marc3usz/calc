@@ -1,5 +1,8 @@
 #include "graphHandler.hpp"
 
+#include <fmt/core.h>
+
+
 namespace graph{
     int mapX(double x, double minX, double maxX, int screenWidth) {
         return static_cast<int>((x - minX) / (maxX - minX) * screenWidth);
@@ -26,6 +29,7 @@ namespace graph{
 
     void drawAxes(SDL_Renderer* renderer, double minX, double maxX, double minY, double maxY,
         int screenWidth, int screenHeight, const char* fontPath) {
+        
         SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255);
         if (minY <= 0 && maxY >= 0) {
             int y0 = mapY(0, minY, maxY, screenHeight);
@@ -36,41 +40,56 @@ namespace graph{
             SDL_RenderDrawLine(renderer, x0, 0, x0, screenHeight);
         }
 
+        
         double xRange = maxX - minX;
         double yRange = maxY - minY;
 
+        
+        int xPrecision = 0; 
+        int yPrecision = 0;
+
+        
+        if (xRange < 10) xPrecision = 1;
+        if (xRange < 1) xPrecision = 2;
+        if (xRange < 0.1) xPrecision = 3;
+        if (xRange < 0.01) xPrecision = 4;
+        if (yRange < 0.001) yPrecision = 5;
+        if (yRange < 0.0001) yPrecision = 6;
+
+
+        
+        if (yRange < 10) yPrecision = 1;
+        if (yRange < 1) yPrecision = 2;
+        if (yRange < 0.1) yPrecision = 3;
+        if (yRange < 0.01) yPrecision = 4;
+        if (yRange < 0.001) yPrecision = 5;
+        if (yRange < 0.0001) yPrecision = 6;
+
+
+        
         double xStep = calculateStepSize(xRange);
         double yStep = calculateStepSize(yRange);
-
-
         double xStart = std::ceil(minX / xStep) * xStep;
         double yStart = std::ceil(minY / yStep) * yStep;
 
-
+        
         TTF_Font* font = TTF_OpenFont(fontPath, 10);
         SDL_Color textColor = { 255, 255, 255, 255 };
 
-
+        
         for (double x = xStart; x <= maxX; x += xStep) {
-
-            if (fabs(x) < 1e-10) continue;
-
+            if (fabs(x) < 1e-10) continue; 
             int screenX = mapX(x, minX, maxX, screenWidth);
-
-
             SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
-
-
             int axisY = (minY <= 0 && maxY >= 0) ? mapY(0, minY, maxY, screenHeight) : screenHeight - 20;
-
-
             SDL_RenderDrawLine(renderer, screenX, axisY - 5, screenX, axisY + 5);
 
+            
+            std::string label = fmt::format("{0:.{1}f}", x, xPrecision);
 
-            char label[32];
-            sprintf_s(label, "%.1f", x);
+
             if (font) {
-                SDL_Surface* surface = TTF_RenderText_Solid(font, label, textColor);
+                SDL_Surface* surface = TTF_RenderText_Solid(font, label.c_str(), textColor);
                 if (surface) {
                     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
                     if (texture) {
@@ -83,27 +102,20 @@ namespace graph{
             }
         }
 
-
+        
         for (double y = yStart; y <= maxY; y += yStep) {
-
-            if (fabs(y) < 1e-10) continue;
-
+            if (fabs(y) < 1e-10) continue; 
             int screenY = mapY(y, minY, maxY, screenHeight);
-
-
             SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
-
-
             int axisX = (minX <= 0 && maxX >= 0) ? mapX(0, minX, maxX, screenWidth) : 32;
-
-
             SDL_RenderDrawLine(renderer, axisX - 5, screenY, axisX + 5, screenY);
 
+            
+            std::string label = fmt::format("{0:.{1}f}", y, yPrecision);
 
-            char label[32];
-            sprintf_s(label, "%.1f", y);
+
             if (font) {
-                SDL_Surface* surface = TTF_RenderText_Solid(font, label, textColor);
+                SDL_Surface* surface = TTF_RenderText_Solid(font, label.c_str(), textColor);
                 if (surface) {
                     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
                     if (texture) {
@@ -116,12 +128,11 @@ namespace graph{
             }
         }
 
-
+        
         if (font) {
             TTF_CloseFont(font);
         }
     }
-
 
 
 
