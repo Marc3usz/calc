@@ -18,7 +18,7 @@ namespace graph {
     double calculateStepSize(double);
 
     void drawAxes(SDL_Renderer*, double, double, double, double,
-        int, int, const char* fontPath = "C:\\Windows\\Fonts\\arial.ttf");
+        int, int, const char*);
 
     void drawGrid(SDL_Renderer*, double, double, double, double,
         int, int);

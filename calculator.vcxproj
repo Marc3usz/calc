@@ -140,15 +140,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\cli.cpp" />
     <ClCompile Include="src\common.cpp" />
     <ClCompile Include="src\derivative.cpp" />
+    <ClCompile Include="src\fileManager.cpp" />
     <ClCompile Include="src\functionFactory.cpp" />
     <ClCompile Include="src\graphHandler.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\cli.hpp" />
     <ClInclude Include="include\common.hpp" />
     <ClInclude Include="include\derivative.hpp" />
+    <ClInclude Include="include\fileManager.hpp" />
     <ClInclude Include="include\functionFactory.hpp" />
     <ClInclude Include="include\graphHandler.hpp" />
   </ItemGroup>

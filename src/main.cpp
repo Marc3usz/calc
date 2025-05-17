@@ -1,5 +1,6 @@
 #include "graphHandler.hpp"
 #include "functionFactory.hpp"
+#include "cli.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -10,16 +11,28 @@
 
 #define MESSAGE "Calc\nm: toggle help\n\n<arrows>: navigate\n+/-: zoom\nr: reset view\n\n1-6: toggle function definition\n<shift>1-6: edit function definiton\n<esc>: exit edit mode\na: show all functions\n\n<shift>s: save\n<ctrl><shift>s: export roots\n\n<shift><esc>: exit"
 
-int WinMain() {
+#ifdef __WIN32__
+    #define ENTRYPOINT int WinMain()
+    #define CliHandlerDef CliHandler cli(__argc, __argv)
+#else
+    #define ENTRYPOINT int main(int argc, char** argv)
+    #define CliHandlerDef CliHandler cli(argc, argv)
+#endif
+
+
+ENTRYPOINT {
+    std::cout << "spel\n";
+    CliHandlerDef;
+    const int SCREEN_WIDTH = cli.width();
+    const int SCREEN_HEIGHT = cli.height();
+    const std::string FONT_PATH = cli.fontFilePath();
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL initialization failed: " << SDL_GetError() << std::endl;
         return 1;
     }
 
     TTF_Init();
-
-    const int SCREEN_WIDTH = 800;
-    const int SCREEN_HEIGHT = 600;
 
     SDL_Window* window = SDL_CreateWindow(
         "Function Grapher",
@@ -42,7 +55,7 @@ int WinMain() {
         return 1;
     }
 
-    TTF_Font* font = TTF_OpenFont("C:\\Windows\\Fonts\\arial.ttf", 20);
+    TTF_Font* font = TTF_OpenFont(FONT_PATH.c_str(), 20);
     if (!font) {
         std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
     }
@@ -83,12 +96,8 @@ int WinMain() {
         };
 
         FunctionFactory fns(fs);
-        
-        fns.parseFunction("2^x", 'a');
-
         bool quit = false;
         SDL_Event e;
-
         
         char lastEditingFunctionId = '\0';
 
@@ -288,7 +297,7 @@ int WinMain() {
             SDL_RenderClear(renderer);
 
             graph::drawGrid(renderer, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT);
-            graph::drawAxes(renderer, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT);
+            graph::drawAxes(renderer, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT, FONT_PATH.c_str());
 
             
             const functionMapping& functions = fns.getFunctions();
