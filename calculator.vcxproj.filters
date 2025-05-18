@@ -30,6 +30,9 @@
     <ClCompile Include="src\fileHandler.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\getZeroes.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\functionFactory.hpp">
@@ -48,6 +51,9 @@
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="include\fileHandler.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\getZeroes.hpp">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>

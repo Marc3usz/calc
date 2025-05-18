@@ -1,11 +1,15 @@
+#define SDL_MAIN_HANDLED
+
 #include "graphHandler.hpp"
 #include "functionFactory.hpp"
 #include "cli.hpp"
 #include "fileHandler.hpp"
+#include "getZeroes.hpp"
 
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 #include <array>
 #include <fmt/core.h>
 
@@ -22,7 +26,6 @@
 
 
 ENTRYPOINT{
-    std::cout << "TEST\n";
     CliHandlerDef;
     const int SCREEN_WIDTH = cli.width();
     const int SCREEN_HEIGHT = cli.height();
@@ -86,8 +89,8 @@ ENTRYPOINT{
         std::string errorMessage = "";
         bool showError = false;
         int errorDisplayTime = 0;
-        std::string statusMessage = ""; // Added for displaying save status
-        int statusDisplayTime = 0; // Added for controlling how long status messages are shown
+        std::string statusMessage = "";
+        int statusDisplayTime = 0;
 
 
         std::array<SDL_Color, 6> functionColors = {
@@ -103,9 +106,7 @@ ENTRYPOINT{
 
         FunctionFactory fns = [&]() {
             if (LOAD_PATH.has_value()) {
-                std::cout << "Loading functions from: " << LOAD_PATH.value() << std::endl; // Debug output
                 std::vector<std::string> loaded = fileHandler::loadFunctions(LOAD_PATH.value());
-                std::cout << "Loaded " << loaded.size() << " functions" << std::endl; // Debug output
                 return FunctionFactory(fs, loaded);
             }
             else {
@@ -152,9 +153,9 @@ ENTRYPOINT{
                                 showError = false;
                                 errorMessage = "";
                             }
-                            catch (const std::exception& e) {
+                            catch (const std::exception& ex) {
 
-                                errorMessage = e.what();
+                                errorMessage = ex.what();
                                 showError = true;
                                 errorDisplayTime = 120;
                                 currentInput = "";
@@ -237,27 +238,54 @@ ENTRYPOINT{
                         }
                         break;
                     case SDLK_s:
-                        if (e.key.keysym.mod & KMOD_SHIFT) {
-                            // Save functions to file - implementation
+                        if ((e.key.keysym.mod & KMOD_CTRL) && (e.key.keysym.mod & KMOD_SHIFT)) {
                             try {
-                                // Get the functions from the FunctionFactory
-                                std::vector<std::string> functionsToSave = fns.exportFunctions();
+                                std::vector<std::string> all_roots_formatted_lines;
+                                const functionMapping& current_functions = fns.getFunctions();
+                                bool functions_found_for_export = false;
 
-                                // Default save path - you can modify this as needed
-                                std::string savePath = "functions.txt";
+                                for (const auto& pair : current_functions) {
+                                    if (pair.first.length() == 1 && pair.first[0] >= 'a' && pair.first[0] <= 'f') {
+                                        functions_found_for_export = true;
+                                        char functionIdChar = pair.first[0];
+                                        const auto& func_to_eval = pair.second;
+                                        std::vector<ld> roots = getZeroes(func_to_eval);
 
-                                // Call the fileHandler to save the functions
-                                fileHandler::saveFunctions(functionsToSave, savePath);
+                                        all_roots_formatted_lines.push_back(std::string(1, functionIdChar) + ":");
+                                        for (ld root_val : roots) {
+                                            all_roots_formatted_lines.push_back(fmt::format("{}", root_val));
+                                        }
+                                    }
+                                }
 
-                                // Show success message
-                                statusMessage = "Functions saved to " + savePath;
-                                statusDisplayTime = 120; // Display for about 2 seconds
+                                if (functions_found_for_export) {
+                                    fileHandler::saveFile(all_roots_formatted_lines, "roots.txt");
+                                    statusMessage = "Roots exported to roots.txt";
+                                }
+                                else {
+                                    statusMessage = "No functions (a-f) to export roots for.";
+                                }
+                                statusDisplayTime = 120;
+
                             }
-                            catch (const std::exception& e) {
-                                // Show error message if save fails
+                            catch (const std::exception& ex) {
+                                    statusMessage = "Error exporting roots: ";
+                                    statusMessage += ex.what();
+                                    statusDisplayTime = 180;
+                            }
+}
+                        else if (e.key.keysym.mod & KMOD_SHIFT) {
+                            try {
+                                std::vector<std::string> functionsToSave = fns.exportFunctions();
+                                std::string savePath = "functions.txt";
+                                fileHandler::saveFile(functionsToSave, savePath);
+                                statusMessage = "Functions saved to " + savePath;
+                                statusDisplayTime = 120;
+                            }
+                            catch (const std::exception& ex) { 
                                 statusMessage = "Error saving functions: ";
-                                statusMessage += e.what();
-                                statusDisplayTime = 180; // Display for about 3 seconds
+                                statusMessage += ex.what();
+                                statusDisplayTime = 180;
                             }
                         }
                         break;
@@ -507,16 +535,15 @@ ENTRYPOINT{
                     }
                 }
 
-                // Render status message if present
                 if (statusDisplayTime > 0) {
-                    SDL_Color statusColor = { 100, 255, 100, 255 }; // Green for status
+                    SDL_Color statusColor = { 100, 255, 100, 255 };
                     SDL_Surface* statusSurface = TTF_RenderText_Blended(font, statusMessage.c_str(), statusColor);
                     if (statusSurface) {
                         SDL_Texture* statusTexture = SDL_CreateTextureFromSurface(renderer, statusSurface);
                         if (statusTexture) {
                             SDL_Rect statusRect = {
-                                (SCREEN_WIDTH - statusSurface->w) / 2, // Center horizontally
-                                20, // Top of screen
+                                (SCREEN_WIDTH - statusSurface->w) / 2,
+                                20,
                                 statusSurface->w,
                                 statusSurface->h
                             };
@@ -587,9 +614,9 @@ ENTRYPOINT{
             SDL_StopTextInput();
         }
     }
-    catch (std::exception& e) {
+    catch (std::exception& ex_outer) {
 
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "Error: " << ex_outer.what() << std::endl;
 
 
         if (SDL_IsTextInputActive()) {
