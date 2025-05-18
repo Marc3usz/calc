@@ -1,6 +1,7 @@
 #include "graphHandler.hpp"
 #include "functionFactory.hpp"
 #include "cli.hpp"
+#include "fileHandler.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -12,20 +13,21 @@
 #define MESSAGE "Calc\nm: toggle help\n\n<arrows>: navigate\n+/-: zoom\nr: reset view\n\n1-6: toggle function definition\n<shift>1-6: edit function definiton\n<esc>: exit edit mode\na: show all functions\n\n<shift>s: save\n<ctrl><shift>s: export roots\n\n<shift><esc>: exit"
 
 #ifdef __WIN32__
-    #define ENTRYPOINT int WinMain()
-    #define CliHandlerDef CliHandler cli(__argc, __argv)
+#define ENTRYPOINT int WinMain()
+#define CliHandlerDef CliHandler cli(__argc, __argv)
 #else
-    #define ENTRYPOINT int main(int argc, char** argv)
-    #define CliHandlerDef CliHandler cli(argc, argv)
+#define ENTRYPOINT int main(int argc, char** argv)
+#define CliHandlerDef CliHandler cli(argc, argv)
 #endif
 
 
-ENTRYPOINT {
-    std::cout << "spel\n";
+ENTRYPOINT{
+    std::cout << "TEST\n";
     CliHandlerDef;
     const int SCREEN_WIDTH = cli.width();
     const int SCREEN_HEIGHT = cli.height();
     const std::string FONT_PATH = cli.fontFilePath();
+    const std::optional<std::string> LOAD_PATH = cli.loadPath();
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL initialization failed: " << SDL_GetError() << std::endl;
@@ -64,7 +66,7 @@ ENTRYPOINT {
     functionMapping fs = {
         {"sin", [](ld x) {return std::sin(x); }},
         {"cos", [](ld x) {return std::cos(x); }},
-        {"log", [](ld x) {return std::log(x); }},  
+        {"log", [](ld x) {return std::log(x); }},
         {"exp", [](ld x) {return std::exp(x); }},
         {"logtwo", [](ld x) {return std::log2(x); }},
         {"tan", [](ld x) {return std::tan(x); }},
@@ -84,21 +86,36 @@ ENTRYPOINT {
         std::string errorMessage = "";
         bool showError = false;
         int errorDisplayTime = 0;
+        std::string statusMessage = ""; // Added for displaying save status
+        int statusDisplayTime = 0; // Added for controlling how long status messages are shown
 
-        
+
         std::array<SDL_Color, 6> functionColors = {
-            SDL_Color{255, 0, 0, 255},    
-            SDL_Color{0, 255, 0, 255},    
-            SDL_Color{0, 128, 255, 255},  
-            SDL_Color{255, 255, 0, 255},  
-            SDL_Color{255, 0, 255, 255},  
-            SDL_Color{0, 255, 255, 255}   
+            SDL_Color{255, 0, 0, 255},
+            SDL_Color{0, 255, 0, 255},
+            SDL_Color{0, 128, 255, 255},
+            SDL_Color{255, 255, 0, 255},
+            SDL_Color{255, 0, 255, 255},
+            SDL_Color{0, 255, 255, 255}
         };
 
-        FunctionFactory fns(fs);
+        std::cout << "cam";
+
+        FunctionFactory fns = [&]() {
+            if (LOAD_PATH.has_value()) {
+                std::cout << "Loading functions from: " << LOAD_PATH.value() << std::endl; // Debug output
+                std::vector<std::string> loaded = fileHandler::loadFunctions(LOAD_PATH.value());
+                std::cout << "Loaded " << loaded.size() << " functions" << std::endl; // Debug output
+                return FunctionFactory(fs, loaded);
+            }
+            else {
+                return FunctionFactory(fs);
+            }
+            }();
+
         bool quit = false;
         SDL_Event e;
-        
+
         char lastEditingFunctionId = '\0';
 
         while (!quit) {
@@ -107,55 +124,55 @@ ENTRYPOINT {
                     quit = true;
                 }
                 else if (e.type == SDL_KEYDOWN && editing) {
-                    
+
                     if (e.key.keysym.sym == SDLK_ESCAPE) {
                         editing = false;
-                        
+
                         editingFunctionId = '\0';
                         currentInput = "";
                         SDL_StopTextInput();
-                        
+
                         showError = false;
                         errorMessage = "";
                     }
                     else if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
-                        
+
                         if (!currentInput.empty()) {
                             try {
-                                
+
                                 fns.parseFunction(currentInput, editingFunctionId);
 
-                                
+
                                 editing = false;
                                 editingFunctionId = '\0';
                                 currentInput = "";
                                 SDL_StopTextInput();
 
-                                
+
                                 showError = false;
                                 errorMessage = "";
                             }
                             catch (const std::exception& e) {
-                                
+
                                 errorMessage = e.what();
                                 showError = true;
-                                errorDisplayTime = 120; 
+                                errorDisplayTime = 120;
                                 currentInput = "";
-                                
+
                             }
                         }
                     }
                     else if (e.key.keysym.sym == SDLK_BACKSPACE && !currentInput.empty()) {
-                        
+
                         currentInput.pop_back();
-                        
+
                         showError = false;
                     }
                 }
                 else if (e.type == SDL_TEXTINPUT && editing) {
-                    
+
                     currentInput += e.text.text;
-                    
+
                     showError = false;
                 }
                 else if (e.type == SDL_KEYDOWN && !editing) {
@@ -213,10 +230,35 @@ ENTRYPOINT {
                         maxY = 5.0;
                         break;
                     case SDLK_a:
-                        
+
                         showAllFunctions = !showAllFunctions;
                         if (showAllFunctions) {
-                            toDisplay = '\0'; 
+                            toDisplay = '\0';
+                        }
+                        break;
+                    case SDLK_s:
+                        if (e.key.keysym.mod & KMOD_SHIFT) {
+                            // Save functions to file - implementation
+                            try {
+                                // Get the functions from the FunctionFactory
+                                std::vector<std::string> functionsToSave = fns.exportFunctions();
+
+                                // Default save path - you can modify this as needed
+                                std::string savePath = "functions.txt";
+
+                                // Call the fileHandler to save the functions
+                                fileHandler::saveFunctions(functionsToSave, savePath);
+
+                                // Show success message
+                                statusMessage = "Functions saved to " + savePath;
+                                statusDisplayTime = 120; // Display for about 2 seconds
+                            }
+                            catch (const std::exception& e) {
+                                // Show error message if save fails
+                                statusMessage = "Error saving functions: ";
+                                statusMessage += e.what();
+                                statusDisplayTime = 180; // Display for about 3 seconds
+                            }
                         }
                         break;
                     case SDLK_ESCAPE:
@@ -248,24 +290,24 @@ ENTRYPOINT {
                                 toDisplay = functionId;
                             }
 
-                            
+
                             std::vector<std::string> expressions = fns.exportFunctions();
                             currentInput = "";
 
-                            
+
                             for (const auto& expr : expressions) {
                                 if (!expr.empty() && expr[0] == functionId) {
-                                    
+
                                     currentInput = expr.substr(1);
                                     break;
                                 }
                             }
 
-                            
+
                             SDL_StartTextInput();
                         }
                         else if (!showAllFunctions) {
-                            
+
                             showAllFunctions = false;
 
                             if (toDisplay == functionId) {
@@ -299,17 +341,17 @@ ENTRYPOINT {
             graph::drawGrid(renderer, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT);
             graph::drawAxes(renderer, minX, maxX, minY, maxY, SCREEN_WIDTH, SCREEN_HEIGHT, FONT_PATH.c_str());
 
-            
+
             const functionMapping& functions = fns.getFunctions();
 
             if (toDisplay == '\0') {
-                
+
                 for (const auto& pair : functions) {
-                    if (pair.first.size() == 1) { 
+                    if (pair.first.size() == 1) {
                         char functionId = pair.first[0];
                         if (functionId >= 'a' && functionId <= 'f') {
                             int colorIndex = functionId - 'a';
-                            
+
                             auto fn = pair.second;
                             graph::plotFunction(renderer, fn, minX, maxX, minY, maxY,
                                 SCREEN_WIDTH, SCREEN_HEIGHT, functionColors[colorIndex]);
@@ -318,7 +360,7 @@ ENTRYPOINT {
                 }
             }
             else {
-                
+
                 std::string fnKey(1, toDisplay);
                 auto it = functions.find(fnKey);
                 if (it != functions.end()) {
@@ -369,24 +411,24 @@ ENTRYPOINT {
                 }
             }
 
-            
+
             if (font) {
-                
+
                 std::vector<std::string> expressions = fns.exportFunctions();
 
                 if (showAllFunctions) {
-                    
+
                     int yPos = SCREEN_HEIGHT - 10;
 
-                    
 
-                    
+
+
                     for (auto it = expressions.rbegin(); it != expressions.rend(); ++it) {
                         const auto& expr = *it;
                         if (!expr.empty() && expr[0] >= 'a' && expr[0] <= 'f') {
                             char functionId = expr[0];
 
-                            
+
                             std::string fnKey(1, functionId);
                             if (functions.find(fnKey) != functions.end()) {
                                 int colorIndex = functionId - 'a';
@@ -406,7 +448,7 @@ ENTRYPOINT {
                                         SDL_RenderCopy(renderer, exprTexture, NULL, &exprRect);
                                         SDL_DestroyTexture(exprTexture);
                                     }
-                                    yPos -= exprSurface->h + 5; 
+                                    yPos -= exprSurface->h + 5;
                                     SDL_FreeSurface(exprSurface);
                                 }
                             }
@@ -414,24 +456,24 @@ ENTRYPOINT {
                     }
                 }
                 else {
-                    
+
                     SDL_Color textColor = { 255, 255, 255, 255 };
                     std::string displayText;
 
                     if (editing) {
-                        
+
                         int colorIndex = editingFunctionId - 'a';
                         textColor = functionColors[colorIndex];
                         displayText = fmt::format("{}(x) = {} _", editingFunctionId, currentInput);
                     }
                     else if (toDisplay != '\0') {
-                        
+
                         std::string fnKey(1, toDisplay);
                         if (functions.find(fnKey) != functions.end()) {
                             int colorIndex = toDisplay - 'a';
                             textColor = functionColors[colorIndex];
 
-                            
+
                             std::string expressionText;
                             for (const auto& expr : expressions) {
                                 if (!expr.empty() && expr[0] == toDisplay) {
@@ -465,7 +507,28 @@ ENTRYPOINT {
                     }
                 }
 
-                
+                // Render status message if present
+                if (statusDisplayTime > 0) {
+                    SDL_Color statusColor = { 100, 255, 100, 255 }; // Green for status
+                    SDL_Surface* statusSurface = TTF_RenderText_Blended(font, statusMessage.c_str(), statusColor);
+                    if (statusSurface) {
+                        SDL_Texture* statusTexture = SDL_CreateTextureFromSurface(renderer, statusSurface);
+                        if (statusTexture) {
+                            SDL_Rect statusRect = {
+                                (SCREEN_WIDTH - statusSurface->w) / 2, // Center horizontally
+                                20, // Top of screen
+                                statusSurface->w,
+                                statusSurface->h
+                            };
+                            SDL_RenderCopy(renderer, statusTexture, NULL, &statusRect);
+                            SDL_DestroyTexture(statusTexture);
+                        }
+                        SDL_FreeSurface(statusSurface);
+                    }
+
+                    statusDisplayTime--;
+                }
+
                 if (editing) {
                     SDL_SetRenderDrawColor(renderer, 30, 30, 30, 200);
                     SDL_Rect editBox = {
@@ -477,13 +540,13 @@ ENTRYPOINT {
                     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
                     SDL_RenderFillRect(renderer, &editBox);
                     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-                    
+
                     SDL_SetRenderDrawColor(renderer, 100, 100, 255, 255);
                     SDL_RenderDrawRect(renderer, &editBox);
 
-                    
+
                     if (showError && !errorMessage.empty()) {
-                        SDL_Color errorColor = { 255, 100, 100, 255 }; 
+                        SDL_Color errorColor = { 255, 100, 100, 255 };
                         std::string errorText = fmt::format("Error: {}", errorMessage);
                         SDL_Surface* errorSurface = TTF_RenderText_Blended(font, errorText.c_str(), errorColor);
                         if (errorSurface) {
@@ -491,7 +554,7 @@ ENTRYPOINT {
                             if (errorTexture) {
                                 SDL_Rect errorRect = {
                                     10,
-                                    SCREEN_HEIGHT - 80, 
+                                    SCREEN_HEIGHT - 80,
                                     errorSurface->w,
                                     errorSurface->h
                                 };
@@ -501,7 +564,7 @@ ENTRYPOINT {
                             SDL_FreeSurface(errorSurface);
                         }
 
-                        
+
                         if (errorDisplayTime > 0) {
                             errorDisplayTime--;
                             if (errorDisplayTime == 0) {
@@ -515,20 +578,20 @@ ENTRYPOINT {
             SDL_RenderPresent(renderer);
             SDL_Delay(16);
 
-            
+
             lastEditingFunctionId = editingFunctionId;
         }
 
-        
+
         if (SDL_IsTextInputActive()) {
             SDL_StopTextInput();
         }
     }
     catch (std::exception& e) {
-        
+
         std::cerr << "Error: " << e.what() << std::endl;
 
-        
+
         if (SDL_IsTextInputActive()) {
             SDL_StopTextInput();
         }

@@ -1,13 +1,14 @@
 #include "cli.hpp"
 
+#include <iostream>
+
 CliHandler::CliHandler(int argc, char** argv): options("calc", "graphical calculator with SDL2") {
 	options.add_options()
-		("file", "file to open functions from")
+		("file", "file to open functions from", cxxopts::value<std::string>())
 		("font", "specify path to font file (ttf)", cxxopts::value<std::string>()->default_value("C:\\Windows\\Fonts\\arial.ttf"))
 		("w,width", "specify width, default 800", cxxopts::value<int>()->default_value("800"))
 		("h,height", "specify height, default 600", cxxopts::value<int>()->default_value("600"))
 		;
-	options.parse_positional({ "file", "font" });
 	parsed = options.parse(argc, argv);
 }
 

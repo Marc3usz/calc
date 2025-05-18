@@ -27,7 +27,7 @@
     <ClCompile Include="src\cli.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\fileManager.cpp">
+    <ClCompile Include="src\fileHandler.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
@@ -47,7 +47,7 @@
     <ClInclude Include="include\cli.hpp">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\fileManager.hpp">
+    <ClInclude Include="include\fileHandler.hpp">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
